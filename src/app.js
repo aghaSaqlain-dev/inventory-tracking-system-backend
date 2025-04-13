@@ -1,32 +1,34 @@
 import express from 'express';
-import { stockMovementRoutes } from './routes/stockMovementRoutes.js';
-import { productRoutes } from './routes/productRoutes.js';
+import helmet from 'helmet';
+import { productCatalogRoutes } from './routes/productCatalogRoutes.js';
+import { inventoryRoutes } from './routes/inventoryRoutes.js';
 import { storeRoutes } from './routes/storeRoutes.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { authRoutes } from './routes/authRoutes.js';
+import { authenticate, limiter } from './middleware/auth.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+app.use(helmet());
 app.use(express.json());
 
-// APIs
-app.use('/api/stock-movements', stockMovementRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/stores', storeRoutes);
+// Rate limiter for all requests
+app.use(limiter);
+
+// Public routes
+app.use('/api/auth', authRoutes);
+
+// Protected routes
+app.use('/api/catalog', authenticate, productCatalogRoutes);
+app.use('/api/inventory', authenticate, inventoryRoutes);
+app.use('/api/stores', authenticate, storeRoutes);
+
 
 app.use((error, req, res, next) => {
     console.error(`[${new Date().toISOString()}] Error: ${error.message}`);
     res.status(error.statusCode || 500).json({ error: error.message || 'Internal server error' });
 });
 
-app.get('/', (req, res) => {
-    res.send('Welcome to the Inventory Tracking System API!');
-});
-
-const dbPath = path.join(__dirname, '../../database.sqlite');
-
 app.listen(PORT, () =>
-    console.log(`Server running on port ${PORT}\nDatabase: ${dbPath}`));
+    console.log(`Server running on port ${PORT}`)
+);
